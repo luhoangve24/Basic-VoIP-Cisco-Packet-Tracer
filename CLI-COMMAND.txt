@@ -1,0 +1,114 @@
+---------- CCNA Voice - How to setup a basic Voice Over IP network in Packet Tracer
+---- Thiết bị mạng
+----- 2811 router (có giao diện dòng lệnh IOS - Internetwork Operating System
+chứa chức năng CME - Communications Manager Express)
+***** CME có các chức năng như: thực hiện cuộc gọi và điều khiển thiết bị, gọi điện bằng
+máy tính, liên kết hệ thống, hỗ trợ dịch vụ đầu cuối . . .
+----- 2960 Switch (kết nối các thiết bị đầu cuối)
+----- Dùng cáp thẳng (Straight Through Cables) - kết nối với
+các thiết bị không giống nhau
+----- Các thiết bị đầu cuối: 02 IP Phones, 02 máy tính
+---- 1, Cấu hình 2950 Switch
+--- Tạo hai mạng ảo - vlans (vlan 10 và vlan 20)
+-- switch
+> en (enable)
+> conf t
+> vlan 10
+> name VOICE
+> exit
+> vlan 20
+> name DATA
+-- Đăng ký cổng cho mạng ảo DATA
+> exit
+> interace range fa0/11 - 12
+> switchport mode access
+> switchport access vlan 20
+> switchport voice vlan 10
+> exit
+> interface fa0/1
+> switchport mode trunk
+ 
+# trunk port: Cổng trung kế được kết nối với switch khác nhau.
+Loại giao diện này có thể mang lưu lượng của nhiều vlan, cho
+phép mở rộng các vlan trên toàn bộ mạng của mình
+# Vì sao switch - router? Router-on-a-stick là thuật ngữ
+thường dùng để miêu tả sự thiết lập kết nối giữa router 
+và switch khi dùng bởi một dây Ethernet. Trong sự thiết lập này,
+router được cấu hình với nhiều vlan và router thực hiện tất cả
+việc định tuyến giữa các mạng/ vlans khác nhau
+
+-- Thiết lập DHCP cho IP Phones
+ROUTER
+> en
+> conf t
+> ip dhcp excluded-address 192.168.10.1 192.168.10.9
+> ip dhcp pool VOICE
+> network 192.168.10.0 255.255.255.0
+> default-router 192.168.10.1
+> option 150 ip 192.168.10.1
+# Option 150 = IP Address of a list of TFTP servers available
+# Option 66 = Gives the IP Address of a single TFTP servers
+> exit
+> ip dhcp excluded-address 192.168.20.1 192.168.20.9
+> ip dhcp pool DATA
+> network 192.168.20.0 255.255.255.0
+> default-router 192.168.20.1
+-- Thiết lập subinterfaces (cổng con) và liên kết chúng tới mạng ảo
+> exit
+> interface fa0/0.10
+> encapsulation dot1Q 10
+# encapsulation: Giao thức chuẩn của IEEE dành cho việc nhận 
+dạng các VLAN bằng cách gắn thẻ các VLAN
+> ip add 192.168.10.1 255.255.255.0
+> exit
+> interface fa0/0.20
+> encapsulation dot1Q 20
+> ip add 192.168.20.1 255.255.255.0
+> interface fa0/0
+> no shutdown 
+# Update các cổng con
+----- Khai báo số lượng tối đa của IP Phones và Directory Number
+# Mỗi Directory number sẽ tiêu tốn tài nguyên xử lý của CME, nên
+cần thiết lập vừa đủ số lượng
+> exit
+> telephony-service
+> max-ephones 2
+# Hai máy
+> max-dn 3
+# Có thể để nhiều hơn ephones, hai cái khác nhau. Nhưng không nên
+để quá nhiều vì có thể gây ảnh hưởng tới chức năng Router
+> ip source-address 192.168.10.1 port 2000
+> create cnf-files
+---- Tùy chỉnh ephone
+> exit
+> ephone 1
+> mac-address xxxx.xxxx.xxxx
+> type 7960
+> exit
+> ephone 2
+> mac-address xxxx.xxxx.xxxx
+> type 7960
+---- Tạo số cho điện thoại
+> exit
+> ephone-dn 1
+> number 2001
+> exit
+> ephone-dn 2
+> number 2002
+> exit
+> ephone-dn 3
+> number 2003
+# max-dn 3
+---- Tùy chỉnh nút điện thoại
+> ephone 1
+> button 1:1
+> exit
+> ephone 2
+> button 1:2
+
+Quá trình của IP Phone
+1. Giao tiếp với Switch thông qua giao thức CDP để biết cấu hình mạng ảo
+2. Gửi yêu cầu cấp DHCP để lấy cấu hình mạng bao gồm địa chỉ IP của TFTP
+Server
+3. Liên lạc với máy chủ TFTP để lấy file cấu hình của nó
+4. Đăng ký với quản lý cuộc gọi và lấy số điện thoại cho nó
